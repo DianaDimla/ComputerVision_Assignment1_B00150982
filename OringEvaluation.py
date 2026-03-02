@@ -2,6 +2,8 @@ import cv2 as cv
 import numpy as np
 import time
 
+from collections import deque # For BFS in connected components
+
 # Histogram Manual
 def histogram(img):
     hist = np.zeros(256, dtype=int)
@@ -43,7 +45,7 @@ def otsu_threshold(hist, total_pixels):
             max_variance = between_variance
             best_threshold = t
         
-        return best_threshold
+    return best_threshold
 
 
 # Thresholding
@@ -85,6 +87,59 @@ def closing (img):
     closed = erosion(dilated)
     return closed
 
+# Connected Components using BFS
+def connected_components(binary):
+
+    labels = np.zeros(binary.shape, dtype=int)
+    current_label = 1
+
+    rows,cols = binary.shape
+
+    for x in range(rows):
+        for y in range(cols):
+            
+            # If pixel is foreground and not labbelled
+            if binary[x, y] == 255 and labels[x, y] == 0:
+
+                # Start BFS
+                queue = deque()
+                queue.append((x, y))
+                labels[x, y] = current_label
+
+                while queue:
+                    cx, cy = queue.popleft()
+
+                    # 4-connected neighbors
+                    neighbors = [(cx-1, cy), (cx+1, cy), (cx, cy-1), (cx, cy+1)]
+
+                    for nx, ny in neighbors:
+                        if 0 <= nx < rows and 0 <= ny < cols:
+                            if binary[nx, ny] == 255 and labels[nx, ny] == 0:
+                                labels[nx, ny] = current_label
+                                queue.append((nx, ny))
+
+                current_label += 1
+    return labels
+
+# Extract largest component
+def extract_largest_component(labels):
+
+    unique, counts = np.unique(labels, return_counts=True)
+
+    # Remove background label (0)    
+    counts = counts[unique != 0]
+    unique = unique[unique != 0]
+
+    if len(counts) == 0:
+        return None
+    
+    largest_label = unique[np.argmax(counts)]
+
+    mask = np.zeros(labels.shape, dtype=np.uint8)
+    mask[labels == largest_label] = 255
+
+    return mask
+
 # Main
 for i in range(1,16):
     #read in an image into memory
@@ -101,6 +156,14 @@ for i in range(1,16):
     bw = closing(bw)
     end = time.time()
     rgb = cv.cvtColor(bw, cv.COLOR_GRAY2BGR)
+
+    # Connected Components and extract largest
+    labels = connected_components(bw)
+    ring = extract_largest_component(labels)
+
+    # Display results
+    if ring is not None:
+        cv.imshow('Labels', ring)
 
     cv.putText(rgb, "Image: " + str(i), (20, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
     cv.putText(rgb, "Time: " + str(round(end - start, 2)) + "s", (20, 55), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
