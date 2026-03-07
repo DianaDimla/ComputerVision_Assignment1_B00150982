@@ -82,7 +82,7 @@ def erosion(img):
                 output[x,y] = 255
     return output
 
-def closing (img):
+def closing(img):
     dilated = dilation(img)
     closed = erosion(dilated)
     return closed
@@ -93,7 +93,7 @@ def connected_components(binary):
     labels = np.zeros(binary.shape, dtype=int)
     current_label = 1
 
-    rows,cols = binary.shape
+    rows, cols = binary.shape
 
     for x in range(rows):
         for y in range(cols):
@@ -140,6 +140,23 @@ def extract_largest_component(labels):
 
     return mask
 
+
+# Classify O-ring based on extracted region area
+def classify_ring(ring):
+
+    if ring is None:
+        return "FAIL", 0
+
+    area = np.sum(ring == 255)
+
+    if 22000 <= area <= 34000:
+        result = "PASS"
+    else:
+        result = "FAIL"
+
+    return result, area
+
+
 # Main
 for i in range(1,16):
     #read in an image into memory
@@ -160,6 +177,7 @@ for i in range(1,16):
     # Connected Components and extract largest
     labels = connected_components(bw)
     ring = extract_largest_component(labels)
+    result, area = classify_ring(ring)
 
     # Display results
     if ring is not None:
@@ -167,7 +185,11 @@ for i in range(1,16):
 
     cv.putText(rgb, "Image: " + str(i), (20, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
     cv.putText(rgb, "Time: " + str(round(end - start, 2)) + "s", (20, 55), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
-    cv.imshow('Binary Result',rgb)
+
+    #Green if PASS, Red if FAIL
+    color = (0, 255, 0) if result == "PASS" else (0, 0, 255)
+    cv.putText(rgb, "Result: " + result, (20, 80), cv.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+    cv.imshow('Result', rgb)
     cv.waitKey(0)
 
 cv.destroyAllWindows()
